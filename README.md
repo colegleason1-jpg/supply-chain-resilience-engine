@@ -1,5 +1,7 @@
 # Supply Chain Resilience & Capital Allocation Engine
 
+[![tests](https://github.com/colegleason1-jpg/supply-chain-resilience-engine/actions/workflows/tests.yml/badge.svg)](https://github.com/colegleason1-jpg/supply-chain-resilience-engine/actions/workflows/tests.yml)
+
 Decides how to spend a fixed resilience budget across supply chain interventions, and — the
 part that matters — is able to show why. Every currency figure traces to a stated input,
 every assumption that is an assumption says so on screen, and the numbers that were measured
@@ -52,6 +54,13 @@ the word "calibrated".
 
 Screenshots of the whole path are in [`app/docs/walkthrough/`](app/docs/walkthrough/), and
 `tools/` holds the scripts that produced them, so it is reproducible rather than a one-off.
+
+## Where the old system went
+
+[`legacy/`](legacy/README.md) holds the acquired single-file system and the forensic audit of
+it. Nothing there is imported by the app or the engine — it is kept because the F1–F18 defect
+citations in ADR-001 point into it, and a claim about fixed defects is worth more when the
+code that contained them is still readable.
 
 ## Deploying
 
