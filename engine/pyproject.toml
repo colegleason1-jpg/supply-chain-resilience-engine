@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scrcae"
+version = "0.1.0"
+description = "Supply Chain Resilience & Capital Allocation Engine - headless core"
+requires-python = ">=3.12"  # 3.11 is untested; the pinned app stack has no 3.11 numpy wheel
+dependencies = ["numpy>=1.26", "pulp>=2.8"]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "hypothesis>=6"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = ["slow: benchmarks and high-iteration runs"]

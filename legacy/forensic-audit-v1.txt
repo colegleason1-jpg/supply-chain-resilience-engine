@@ -1,0 +1,686 @@
+I went back through the saved v1.0 system map, the Rebuild Blueprint, and the source artifacts in the Library. The evidence is strong enough to produce the first Acquisition Truth Map / Forensic Inventory now. I am deliberately distinguishing implemented, partially implemented, claimed but not demonstrated, and not implemented.
+Acquisition Truth Map — Forensic Inventory v1.0
+Baseline: Current-State System Map v1.0 Target: Rebuild Blueprint / Version 2 architecture
+The v1.0 map describes the acquired system as a Streamlit monolith with seven principal functional areas, session-state storage, market telemetry, Supabase authentication/database capabilities, AWS deployment, and GitHub workflows.
+
+1. Executive UI / Product Experience
+Status: 🟢 KEEP / PROTECT
+What we actually acquired
+The UI is a functioning executive control surface, not merely mockup material.
+It exposes:
+	•	baseline system risk
+	•	optimization weighting
+	•	simulation count
+	•	target-risk mode
+	•	budget
+	•	portfolio allocation
+	•	capital deployed
+	•	lead-time savings
+	•	P50/P90 risk
+	•	active bundles
+	•	budget sensitivity
+	•	equation/verification displays
+	•	network/data views
+	•	exports
+The source shows the executive controls directly manipulating model parameters and triggering the computational pipeline.
+Value
+High.
+The interface is already close to the kind of decision cockpit we want.
+Problem
+The UI currently owns too much application logic.
+Rebuild mapping
+Current: Streamlit → business logic → model → results
+Target: Web UI → API/application layer → domain engines → results
+The UI survives. Its authority over the engine does not.
+
+2. Supply-Chain Data Ingestion & Validation
+Status: 🟢 KEEP / EXTRACT
+This is better than I initially expected.
+The product requires a defined seven-column supply-chain schema and validates:
+	•	missing columns
+	•	extra columns
+	•	duplicates
+	•	missing values
+	•	numeric validity
+	•	negative values
+	•	invalid costs
+	•	node identifiers
+The system explicitly warns that Risk Reduction (%) is an internal model input rather than automatically representing probability or financial loss. 
+What this means
+We have a legitimate domain-input contract.
+That's valuable because enterprise integrations can eventually normalize ERP/WMS/TMS/procurement information into the same domain representation.
+Rebuild mapping
+
+Current:
+CSV/XLSX → Streamlit validation → DataFrame
+
+Target:
+Connectors
+   ↓
+Canonical Data Model
+   ↓
+Schema Validation
+   ↓
+Data Quality Engine
+   ↓
+Domain Model
+
+Keep the schema concept. Make it an actual domain schema.
+
+3. Supply-Chain Network Model
+Status: 🟢 KEEP / STRENGTHEN
+The system models:
+	•	nodes
+	•	cost
+	•	risk reduction
+	•	lead-time savings
+	•	dependencies
+	•	bundles
+	•	correlations
+	•	macro adjustments
+	•	market adjustments
+Network dependencies are represented explicitly and become optimization constraints.
+Value
+High.
+This is the bridge between generic optimization and an actual supply-chain decision engine.
+Rebuild mapping
+Create a standalone domain model:
+
+SupplyNetwork
+ ├── Nodes
+ ├── Dependencies
+ ├── Interventions
+ ├── Bundles
+ ├── Constraints
+ ├── Risk Parameters
+ └── Economic Parameters
+
+NetworkX becomes an implementation detail rather than the domain model itself.
+
+4. Optimization Engine
+Status: 🟢🟢 HIGH-VALUE CORE
+This is probably the most important thing you acquired.
+The implementation genuinely creates a mixed-integer optimization problem.
+It uses:
+	•	binary activation variables y
+	•	continuous allocation variables x
+	•	0.3y ≤ x ≤ 1.0y
+	•	budget constraints
+	•	dependency constraints
+	•	bundle variables
+	•	bundle discounts
+	•	risk/lead-time objective
+	•	target-risk minimization
+The target-risk mode genuinely switches to LpMinimize and imposes a required risk-reduction constraint. 
+This is real IP territory.
+The architecture isn't simply:
+"calculate a score and rank things."
+It is:
+allocate scarce capital subject to discrete activation, partial investment, dependencies, and economic synergies.
+That is substantially more interesting.
+Rebuild mapping
+Extract into:
+
+/core/optimization
+
+Optimizer
+ObjectiveFunction
+DecisionVariables
+Constraints
+DependencyConstraint
+BundleConstraint
+BudgetConstraint
+TargetRiskOptimizer
+OptimizationResult
+
+This engine should become independently callable without Streamlit.
+
+5. Optimization Objective — 🟡 IMPORTANT SCIENTIFIC AUDIT
+The current objective is effectively a weighted combination of marginal risk reduction and lead-time savings:
+w × risk + (1-w) × lead time
+The source implements that directly. 
+Problem
+The units aren't naturally comparable.
+A percentage point of risk reduction and a day of lead-time savings are fundamentally different quantities.
+The UI treats the weighting parameter as the normalization mechanism.
+That's usable as a prototype.
+It is not yet a rigorous multi-objective optimization framework.
+Rebuild
+We should eventually normalize objectives or introduce an explicit utility/value function:
+
+Risk Value
+Lead-Time Value
+Capital Cost
+Strategic Value
+Carbon Value
+Optionality Value
+↓
+Decision Utility
+
+This could become one of the biggest mathematical upgrades.
+Disposition: 🟡 RESEARCH / REFORMULATE
+
+6. Diminishing-Utility Risk Model
+Status: 🟡 REAL BUT UNVALIDATED
+The model transforms risk reduction through:
+(β_macro × Risk_n)^0.85
+The code explicitly implements the 0.85 exponent.
+This is interesting because it creates diminishing returns.
+But:
+We don't yet know why 0.85 is correct.
+It is currently a model assumption.
+Rebuild
+Replace hard-coded exponents with:
+
+RiskResponseModel
+ ├── FunctionalForm
+ ├── Parameters
+ ├── Calibration
+ ├── Confidence
+ └── Version
+
+Eventually the exponent could be:
+	•	empirically calibrated
+	•	intervention-specific
+	•	learned from historical outcomes
+	•	scenario-dependent
+Disposition: 🟡 KEEP CONCEPT / VALIDATE MATHEMATICS
+
+7. Monte Carlo Engine
+Status: 🟢 CORE ASSET / 🟡 SCIENTIFICALLY UNFINISHED
+This is definitely not fake Monte Carlo.
+It:
+	1.	accepts a correlation matrix
+	2.	attempts Cholesky decomposition
+	3.	generates independent Gaussian variables
+	4.	transforms them through the Cholesky matrix
+	5.	applies correlated shocks
+	6.	calculates simulated risk
+	7.	returns P50/P90/std. dev.
+
+The UI supports 1,000–50,000 iterations. 
+But here is the forensic finding
+The current shock model is:
+1 + 0.12Z
+with a floor of 0.4.
+Those parameters are not yet scientifically justified. 
+So:
+The engine is real.
+The stochastic model is provisional.
+That's an important distinction.
+Rebuild
+
+/stochastic
+
+DistributionModel
+CorrelationModel
+ShockModel
+RegimeModel
+ScenarioGenerator
+MonteCarloRunner
+TailRiskAnalyzer
+ForecastEngine
+
+Then calibrate the actual distributions.
+
+8. Correlation Matrix
+Status: 🟡 PROTOTYPE → HIGH-VALUE FUTURE CAPABILITY
+The system allows users to enter a node correlation matrix and initializes off-diagonal correlations to 0.35. 
+This is clever from a prototype perspective.
+But an enterprise-grade model should eventually distinguish:
+User assumption
+from
+empirically estimated correlation
+from
+stress correlation
+from
+regime-dependent correlation.
+Rebuild
+
+CorrelationProvider
+ ├── UserDefined
+ ├── Historical
+ ├── MarketDerived
+ ├── RegimeSpecific
+ └── StressScenario
+
+This becomes extremely important for your stochastic thesis.
+
+9. 11-Sector Stock Market Intelligence
+Status: 🟡 STRATEGIC ASSET / MAJOR REFACTOR
+We now have definitive evidence that these really are the 11 stock-market sectors:
+	•	Information Technology — XLK
+	•	Communication Services — XLC
+	•	Energy — XLE
+	•	Materials — XLB
+	•	Industrials — XLI
+	•	Consumer Discretionary — XLY
+	•	Financials — XLF
+	•	Real Estate — XLRE
+	•	Health Care — XLV
+	•	Consumer Staples — XLP
+	•	Utilities — XLU
+
+The collector polls them on a 1,800-second / 30-minute interval. 
+And your original idea is substantially present.
+The system does sticky last-known-value behavior when the feed is empty or offline. 
+That's correct conceptually.
+But the critical architectural flaw is now undeniable:
+The "local system of record" is actually:
+st.session_state.local_market_table
+rather than a persistent backend time-series store. 
+So the current architecture does not fully satisfy your original design.
+Rebuild
+This becomes:
+
+Market Data Provider
+       ↓
+Sector Collector
+       ↓
+Normalizer
+       ↓
+Market Time-Series Database
+       ↓
+Latest-State Materialized View
+       ↓
+Anomaly Engine
+       ↓
+Catalyst Engine
+       ↓
+Forecast Engine
+
+This is one of our highest-priority rebuilds.
+
+10. Market Feedback Bridge
+Status: 🟡 IMPORTANT CONCEPT / TOO CRUDE CURRENTLY
+There is a real bridge from market data into supply-chain optimization.
+It modifies node risk using market daily-change/volatility information. 
+That is exactly the architectural direction you described.
+But the current implementation has a serious limitation:
+It attempts to match a market sector to a supply-chain node using:
+Node Name == Sector
+That is far too simplistic for an enterprise supply chain. 
+Rebuild
+Introduce:
+
+Sector
+   ↓
+Economic Exposure
+   ↓
+Supply-Chain Exposure
+   ↓
+Node / Supplier / Commodity
+   ↓
+Risk Transmission Model
+
+That is much more powerful.
+Instead of saying:
+"Energy moved 4%, therefore this node changes."
+we eventually want:
+"Energy moved 4%; this node has 38% modeled exposure to energy-sensitive transportation and petrochemical inputs; therefore its disruption distribution shifts by X under the current regime."
+That is potentially a major differentiator.
+
+11. Global Macro Feed
+Status: 🟡 KEEP CONCEPT / REBUILD
+The current system pulls Brent crude through an external API, caches it for 1,800 seconds, and converts the price into a macro multiplier. 
+The architectural idea is good.
+But the implementation has two problems:
+	1.	A placeholder API key exists in the source.
+	2.	A single commodity is being used as a very broad global macro multiplier.
+Rebuild
+Create:
+
+Macro Intelligence Service
+
+Oil
+Freight
+Rates
+FX
+Commodities
+Credit
+Inflation
+Volatility
+...
+        ↓
+Macro State Vector
+        ↓
+Regime Detection
+
+Then the optimization engine consumes a versioned macro state, not a single scalar.
+
+12. Catalyst Detection
+Status: 🟡 REAL PROTOTYPE
+The product does contain an anomaly/catalyst concept based around sector movements and statistical deviation. The system map explicitly identifies catalyst detection as Δ/σ-based. 
+Value
+This is strategically important.
+Current limitation
+It appears to answer:
+"Is this movement unusual?"
+rather than:
+"What catalyst likely produced it, how persistent is it, what sectors will it propagate through, and what does it imply for the supply network?"
+Rebuild
+
+Anomaly
+ ↓
+Event / Catalyst Candidate
+ ↓
+Cross-Sector Confirmation
+ ↓
+Persistence Analysis
+ ↓
+Transmission Model
+ ↓
+Forecast Distribution
+ ↓
+Supply-Chain Impact
+
+That's the evolution we want.
+
+13. Forecasting
+Status: 🔴 NOT ACQUIRED — NEW CAPABILITY
+The system does not currently possess the future-market forecasting engine we envision.
+The existing stochastic system simulates risk outcomes around the current optimization state.
+That is different from forecasting future market states.
+The Blueprint correctly identifies 5-day, 30-day, 90-day and 1-year forecasting as a new capability. 
+Rebuild
+This becomes a major new subsystem.
+
+14. AI Copilot
+Status: 🟡 GOOD INTERFACE IDEA / NOT AI
+The existing copilot recognizes commands like:
+	•	set budget
+	•	change optimization weight
+	•	set risk target
+and changes Streamlit state. 
+Value
+The interaction paradigm is valuable.
+The implementation is not.
+Rebuild
+Eventually:
+
+Natural Language
+      ↓
+Intent / Planning
+      ↓
+Permission Check
+      ↓
+Tool Invocation
+      ↓
+Simulation / Optimization
+      ↓
+Explainable Result
+
+The AI should never directly mutate core state.
+It should issue typed commands through the application API.
+
+15. Reporting / Equation Ledger
+Status: 🟢 KEEP / REBUILD AS AUDIT SYSTEM
+The product has a strong instinct here.
+It doesn't merely display results; it attempts to expose the equations and "Proof-of-Work" traces. 
+But forensic warning
+A UI statement saying:
+"Verification: zero violations"
+isn't equivalent to an independently verified assertion.
+Likewise, the displayed verification hash in the macro ledger is not sufficient evidence of cryptographic integrity.
+Rebuild
+Turn this into a real:
+Model Audit Ledger
+Every result gets:
+
+Model Version
+Data Version
+Scenario ID
+Input Hash
+Parameter Set
+Solver Version
+Random Seed
+Simulation Count
+Source Timestamps
+Constraint Results
+Output Hash
+
+This could become a major enterprise selling point.
+
+16. Authentication
+Status: 🟡 FOUNDATION / NOT ENTERPRISE-READY
+Supabase authentication exists, and the source includes a five-attempt lockout mechanism. 
+Value
+Useful starting foundation.
+Problem
+Authentication ≠ enterprise authorization.
+We still need:
+	•	SSO
+	•	RBAC
+	•	tenant isolation
+	•	policy enforcement
+	•	audit trails
+	•	service identities
+	•	secrets management
+Rebuild
+Enterprise Identity & Access module.
+
+17. Storage Architecture
+Status: 🔴 MAJOR REBUILD
+This is one of the clearest findings.
+The current architecture mixes:
+	•	Streamlit session state
+	•	local market state
+	•	uploaded data
+	•	in-memory simulation results
+	•	Supabase
+The system map itself identifies session state and simulation memory as temporary storage. 
+Rebuild
+Separate:
+
+Operational Database
+Time-Series Store
+Object Storage
+Cache
+Result Store
+Audit Store
+
+Each gets a defined purpose.
+
+18. CI/CD
+Status: 🟡 EXISTING FOUNDATION
+The repository already has GitHub Actions workflows and AWS deployment infrastructure. 
+Value
+Good.
+Problem
+The current workflow foundation doesn't provide the model-governance pipeline we need.
+Rebuild mapping
+Existing workflows become candidates for:
+KEEP / MODIFY / DELETE / REPLACE
+and ultimately enforce:
+Lint → Type → Unit → Integration → Model → Property → Security → Performance → Build → Deploy → Smoke → Observe
+as established in the Blueprint. 
+
+19. Testing
+Status: 🔴 CRITICAL GAP
+The v1.0 map identifies no meaningful unit, integration, model-validation, performance, or property-based test architecture. 
+This is probably our single biggest trust problem.
+Not because the engine doesn't work.
+Because we currently don't have enough automated evidence to know when it stops working correctly.
+Rebuild
+Testing becomes a first-class product subsystem:
+
+Unit
+Integration
+Mathematical
+Property
+Regression
+Performance
+Security
+Data Quality
+Stochastic Validation
+
+
+20. Security
+Status: 🔴 CRITICAL GAP
+The current map explicitly identifies missing SAST/DAST, dependency scanning, container scanning and IaC scanning, plus secrets risk. 
+We also found the placeholder external API credential in the code. 
+Rebuild
+Security becomes part of CI/CD and deployment architecture, not a future cleanup task.
+
+21. Observability
+Status: 🔴 NOT ACQUIRED
+The v1.0 map explicitly identifies missing:
+	•	centralized logging
+	•	metrics
+	•	alerts
+	•	tracing
+
+Rebuild
+This needs to exist before serious enterprise deployment.
+For this product, observability should include model telemetry, not merely CPU utilization.
+We want to know:
+Which model ran?
+With what data?
+How long?
+Did the solver converge?
+How many constraints were active?
+What changed?
+What anomalies occurred?
+Did stochastic distributions behave normally?
+
+22. Enterprise Integrations
+Status: 🔴 NOT ACQUIRED
+ERP/WMS/TMS, EDI/AS2, REST/GraphQL and procurement integrations are currently planned rather than implemented. 
+Rebuild
+This is why the canonical domain model becomes so important.
+We don't build 50 bespoke integrations directly into the optimization engine.
+We build:
+Connector → canonical data contract → domain model.
+
+23. Biochip / External Entropy
+Status: 🔴 CONCEPT ONLY
+The biological entropy idea is not implemented.
+That is okay.
+It belongs in the research track described in the Blueprint:
+deterministic production → secure operational stochasticity → experimental external entropy.
+It should never become a dependency of the core engine until experimentally justified.
+
+The Acquisition Truth Matrix
+Component	Truth	Value	Rebuild disposition
+Executive UI	Real / strong	🟢 High	Preserve, decouple
+Data validation	Real	🟢 High	Extract
+Network model	Real	🟢 High	Domain service
+MIP optimization	Real	🟢 Very High	Preserve + rigorously test
+Dependencies	Real	🟢 High	Domain constraint engine
+Bundles	Real	🟢 High	Constraint/economic module
+Target-risk mode	Real	🟢 High	Preserve + validate
+Budget sweeps	Real	🟢 Medium/High	Generalize
+Diminishing utility	Real	🟡 Medium	Calibrate
+Monte Carlo	Real	🟢 High	Re-engineer
+Correlation	Real	🟡 High potential	Calibrate/expand
+11 stock sectors	Real	🟢 Strategic	Persistent market service
+30-min collection	Real	🟢	Scheduler/worker
+Last-known fallback	Real concept	🟢	Persistent state
+Historical market DB	Not actually there	🔴 Critical	Build
+Market→node mapping	Real but crude	🟡	Exposure model
+Macro feed	Real	🟡	Multi-factor rebuild
+Catalyst detection	Prototype	🟡	Dedicated engine
+Forward forecasting	Absent	🔵 Very High	Build
+AI copilot	Rule parser	🟡	API-controlled intelligence
+Reporting	Real	🟢	Preserve/rebuild
+Audit ledger	Prototype	🟡	Model governance
+Authentication	Real	🟡	Enterprise IAM
+Persistent scenario store	Mostly future	🔴	Build
+Testing	Weak/absent	🔴	Build first-class
+Security	Weak	🔴	Harden
+Observability	Absent	🔴	Build
+AWS deployment	Real	🟢	Preserve/improve
+CI/CD	Partial	🟡	Expand
+Enterprise connectors	Absent	🔵	Build
+Biochip entropy	Concept	🔵	Research
+The underlying v1.0 map independently supports this broad classification: optimization, Monte Carlo, UI/UX and data ingestion are the strongest existing domains; market intelligence is partial; forecasting, modularity, testing, security and observability are major gaps. 
+
+The most important forensic conclusion
+I think we've now got a much clearer answer to "what did I buy?"
+You did not acquire a finished enterprise supply-chain digital twin.
+You acquired something potentially more interesting in a different way:
+A lightweight prototype of a resilience-investment decision engine with a real mixed-integer optimization core, correlated stochastic simulation, supply-network dependency modeling, executive decision UI, and an embryonic market-intelligence feedback loop.
+That is a defensible description of the current asset.
+And importantly:
+the gap between that and your intended product is architectural and scientific—not a complete absence of foundational technology.
+That's why I think the rebuild is worthwhile.
+
+The direct mapping into Version 2
+The acquired system now maps cleanly into the rebuild:
+
+ACQUIRED
+────────────────────────────────────────
+
+Streamlit UI
+      ↓
+Executive Interface
+
+CSV/XLSX Validator
+      ↓
+Canonical Data Platform
+
+NetworkX + node model
+      ↓
+Supply Network Domain
+
+PuLP/CBC
+      ↓
+Optimization Engine
+
+Monte Carlo
+      ↓
+Stochastic Engine
+
+11 ETF collector
+      ↓
+Market Intelligence Platform
+
+MarketFeedbackBridge
+      ↓
+Exposure / Transmission Engine
+
+Catalyst detector
+      ↓
+Catalyst Intelligence
+
+PDF / CSV / dashboards
+      ↓
+Reporting + Audit
+
+Supabase Auth
+      ↓
+Enterprise Identity
+
+GitHub/AWS
+      ↓
+CI/CD + Cloud Platform
+
+And the genuinely new capabilities become:
+
+Persistent Market Time Series
+        ↓
+Market Regimes
+        ↓
+Catalyst Prediction
+        ↓
+5d / 30d / 90d / 1y Forecast Distributions
+        ↓
+Scenario Engine
+        ↓
+Supply-Chain Transmission
+        ↓
+Capital Allocation
+        ↓
+Decision Intelligence
+
+That is the real Version 2 product.
+One thing I would change in our original Blueprint
+I would now make persistent market history + the market exposure/transmission model a higher priority than we originally had them.
+Because your clarified thesis isn't merely:
+"Use today's market price."
+It's:
+Observe the market continuously → preserve its history → detect deviations → identify catalysts → model how those conditions propagate into supply-chain risk → simulate future states → optimize capital allocation.
+That is the actual differentiated loop.
+And now we can see exactly which pieces of that loop you already own versus which pieces we need to create.
+Acquisition Truth Map v1.0 is therefore complete at the architectural inventory level.
+The next phase is the Mathematical / Scientific Audit: we take the optimization, diminishing utility, market feedback, correlation, Monte Carlo and catalyst equations one by one and determine which mathematics we should preserve, which needs calibration, and which needs to be replaced. That is the step where we can start turning this from a promising prototype into a technically defensible engine.

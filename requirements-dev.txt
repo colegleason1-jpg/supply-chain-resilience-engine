@@ -1,0 +1,10 @@
+# Everything needed to run the suite and regenerate the walkthrough screenshots.
+# Not installed on the deployment target.
+-r requirements.txt
+
+pytest==9.1.1
+hypothesis==6.165.10
+
+# Only for tools/capture_walkthrough.py. Needs `python -m playwright install chromium`
+# after install.
+playwright>=1.44

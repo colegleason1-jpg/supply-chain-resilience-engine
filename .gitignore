@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.hypothesis/
+*.egg-info/
+portfolios.db
+*.db
+
+# Build artifacts from `pip install ./engine`
+build/
+dist/
+*.egg-info/
+
+# Walkthrough output when written outside app/docs/
+walkthrough-shots/

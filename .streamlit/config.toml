@@ -1,0 +1,19 @@
+# Behaviour only. No theme overrides: the app's look is the Streamlit default on purpose,
+# so a reviewer's attention goes to the numbers and their provenance.
+
+[server]
+# Streamlit Cloud terminates TLS and speaks WebSocket to the app itself, so CORS and XSRF
+# protection are left ON here. They were disabled only in the local sandbox, behind a
+# proxy that could not upgrade WebSockets, and that setting must not follow us to a public
+# URL.
+headless = true
+maxUploadSize = 5
+
+[browser]
+gatherUsageStats = false
+
+[runner]
+# A rerun should not silently re-fire a network call. The market feed is already behind an
+# explicit button, and this keeps the magic-display path from re-evaluating expressions
+# nobody asked to re-evaluate.
+magicEnabled = false
