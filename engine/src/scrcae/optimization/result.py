@@ -128,6 +128,14 @@ class OptimizationResult:
     #: Risk reduction before the baseline cap is applied.
     raw_risk_reduction_pts: float = 0.0
 
+    #: Units of each declared resource the allocation draws, recomputed from the
+    #: funding scales. Empty for a network without resources.
+    resource_use: Mapping[str, float] = field(default_factory=dict)
+
+    def resource_headroom(self, name: str, capacity: float) -> float:
+        """Capacity left on ``name`` after this allocation; negative only if a violation was reported."""
+        return float(capacity) - float(self.resource_use.get(name, 0.0))
+
     @property
     def net_capital(self) -> float:
         return self.gross_capital - self.bundle_discounts

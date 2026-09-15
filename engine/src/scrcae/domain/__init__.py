@@ -1,3 +1,3 @@
-from .network import Bundle, Dependency, DomainError, Intervention, SupplyNetwork
+from .network import Bundle, Dependency, DomainError, Intervention, Resource, SupplyNetwork
 
-__all__ = ["Bundle", "Dependency", "DomainError", "Intervention", "SupplyNetwork"]
+__all__ = ["Bundle", "Dependency", "DomainError", "Intervention", "Resource", "SupplyNetwork"]
