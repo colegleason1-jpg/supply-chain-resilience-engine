@@ -431,6 +431,40 @@ explains the failure, `kind` is `undiagnosed` and the text says so.
 `OptimizationResult.explanation` is the string to render in a UI for any status; it
 never contains the word "infeasible".
 
+## 5c. Resource capacities
+
+The budget is one scalar, and a real portfolio also runs against per-supplier limits: a
+vendor's daily quota, a port's slots, a team's hours. Each is a `Resource` with a
+`capacity`, and each intervention states its `usage` of it at full scale; consumption
+scales with funding like cost does.
+
+```python
+network = SupplyNetwork(
+    baseline_risk_pts=80.0,
+    interventions=(
+        Intervention("A", cost=100_000.0, risk_reduction_pts=10.0, usage={"vendor": 100.0}),
+        Intervention("B", cost=100_000.0, risk_reduction_pts=6.0, usage={"vendor": 100.0}),
+    ),
+    resources=(Resource("vendor", 150.0),),
+)
+```
+
+The optimizer adds one row per resource, `sum(usage_n · x_n) <= capacity`, the verifier
+re-checks it after the solve with the same scaled tolerance as the budget row, and
+`result.resource_use` reports the draw recomputed from the funding scales. A capacity of
+zero is legal and switches off everything that uses the supply, which is how a supplier
+that is down for the day is expressed. A usage naming a resource the network does not
+declare is a `DomainError`, not a silent free lunch.
+
+When a target is unreachable because a capacity binds, the diagnosis still reports
+`exceeds_structural_ceiling` (more capital does not help), but the frontier's
+`limited_by` reads `resource:<names>` and the remedy says to raise that capacity or move
+usage elsewhere, rather than to buy interventions that are not on the table.
+
+The default is no resources. A network without them adds no rows, no checks, and nothing
+to the audit input, so every result and hash produced before this family existed is
+unchanged; `test_resources.py` pins that.
+
 ## 6. The audit record
 
 Every `OptimizationResult` carries `result.audit`, a mapping with these keys:

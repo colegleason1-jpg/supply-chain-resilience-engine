@@ -455,6 +455,21 @@ def solve(request: OptimizationRequest) -> OptimizationResult:
     if request.enforce_risk_cap:
         problem += total_cap_expr <= network.baseline_risk_pts, "risk_cap"
 
+    # -- resource capacities ----------------------------------------------- #
+    # One row per capped supply beside capital (a vendor's daily quota, a port's
+    # slots). Usage scales with funding like cost does. A network without
+    # resources adds no rows, so nothing produced before this family existed
+    # can move.
+    resource_expr: dict[str, pl.LpAffineExpression] = {}
+    for index, resource in enumerate(network.resources):
+        expr = pl.lpSum(
+            intervention.usage_of(resource.name) * x[intervention.node_id]
+            for intervention in network
+            if intervention.usage_of(resource.name) > 0.0
+        )
+        resource_expr[resource.name] = expr
+        problem += expr <= resource.capacity, f"resource_{index}"
+
     # CBC's default primal feasibility tolerance is absolute, so on currency
     # coefficients of order 1e5-1e9 it can return a solution that overspends the
     # budget by a fraction of a cent and consider it feasible. That is correct
@@ -522,6 +537,15 @@ def solve(request: OptimizationRequest) -> OptimizationResult:
             active_bundles.append(bundle.name)
             discounts_applied += bundle.discount
 
+    # Recomputed from the extracted scales, never read back from the solver rows.
+    resource_use: dict[str, float] = {
+        resource.name: sum(
+            intervention.usage_of(resource.name) * scales[intervention.node_id]
+            for intervention in network
+        )
+        for resource in network.resources
+    }
+
     objective_value = pl.value(problem.objective)
 
     # An infeasible status is the truthful solver answer and is reported unchanged.
@@ -543,6 +567,7 @@ def solve(request: OptimizationRequest) -> OptimizationResult:
         active_bundles=tuple(active_bundles),
         raw_risk_reduction=raw_risk_reduction,
         solved=status == SolveStatus.OPTIMAL,
+        resource_use=resource_use,
     )
 
     audit = build_audit_record(
@@ -586,18 +611,21 @@ def solve(request: OptimizationRequest) -> OptimizationResult:
         effective_baseline_risk_pts=request.effective_baseline_risk_pts,
         audit=audit,
         raw_risk_reduction_pts=raw_risk_reduction,
+        resource_use=resource_use,
     )
 
     from ..audit import content_hash
 
-    audit["output_hash"] = content_hash(
-        {
-            "scales": scales,
-            "gross_capital": gross_capital,
-            "discounts": discounts_applied,
-            "raw_risk_reduction_pts": raw_risk_reduction,
-        }
-    )
+    output_record: dict[str, object] = {
+        "scales": scales,
+        "gross_capital": gross_capital,
+        "discounts": discounts_applied,
+        "raw_risk_reduction_pts": raw_risk_reduction,
+    }
+    if resource_use:
+        # Only when resources exist, so every historic output hash is unchanged.
+        output_record["resource_use"] = resource_use
+    audit["output_hash"] = content_hash(output_record)
     return result
 
 
@@ -610,6 +638,7 @@ def _verify(
     active_bundles: tuple[str, ...],
     raw_risk_reduction: float,
     solved: bool,
+    resource_use: Mapping[str, float] | None = None,
 ) -> ConstraintReport:
     """Independently re-check the solver's answer against the stated model."""
     network = request.network
@@ -621,6 +650,7 @@ def _verify(
         "dependency_cascade",
         "bundle_activation",
     ]
+    resource_use = dict(resource_use or {})
 
     if not solved:
         return ConstraintReport(
@@ -738,6 +768,23 @@ def _verify(
                     raw_risk_reduction - cap,
                 )
             )
+
+    if network.resources:
+        checks.append("resource_capacity")
+        for resource in network.resources:
+            used = float(resource_use.get(resource.name, 0.0))
+            overshoot = used - resource.capacity
+            if overshoot > 0:
+                slack[f"resource:{resource.name}"] = overshoot
+            if used > resource.capacity + scaled_tol(resource.capacity):
+                violations.append(
+                    Violation(
+                        "resource_capacity",
+                        f"resource {resource.name!r} used {used:.6g} exceeds capacity "
+                        f"{resource.capacity:.6g}",
+                        overshoot,
+                    )
+                )
 
     return ConstraintReport(
         violations=tuple(violations),

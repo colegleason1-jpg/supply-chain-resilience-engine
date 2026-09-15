@@ -11,13 +11,15 @@ dependency analysis, not the domain representation itself.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field, replace
-from typing import Iterable, Iterator, Sequence
+from typing import Iterable, Iterator, Mapping, Sequence
 
 __all__ = [
     "Intervention",
     "Dependency",
     "Bundle",
+    "Resource",
     "SupplyNetwork",
     "DomainError",
 ]
@@ -60,6 +62,13 @@ class Intervention:
         this at 0.3 for every node; it is now per-node and explicit.
     max_funding_scale:
         Maximum fraction of ``cost`` that may be deployed.
+    usage:
+        Units of each named :class:`Resource` this intervention consumes at 100%
+        scale, as ``{resource_name: amount}``; consumption scales linearly with
+        funding. Empty (the default) means the intervention draws on no capped
+        resource beyond the budget, which reproduces every result the engine
+        produced before resources existed. Stored as a sorted tuple of pairs so
+        the object stays hashable and its audit hash is order-independent.
     """
 
     node_id: str
@@ -71,10 +80,34 @@ class Intervention:
     carbon_tons: float = 0.0
     min_funding_scale: float = 0.3
     max_funding_scale: float = 1.0
+    usage: tuple[tuple[str, float], ...] = ()
 
     def __post_init__(self) -> None:
         if not str(self.node_id).strip():
             raise DomainError("Intervention.node_id must be a non-empty string")
+        pairs = self.usage.items() if isinstance(self.usage, Mapping) else self.usage
+        normalised: list[tuple[str, float]] = []
+        for pair in pairs:
+            try:
+                resource, amount = pair
+            except (TypeError, ValueError):
+                raise DomainError(
+                    f"{self.node_id}: usage entries must be (resource, amount) pairs or a "
+                    f"mapping, got {pair!r}"
+                ) from None
+            if not str(resource).strip():
+                raise DomainError(f"{self.node_id}: usage names an empty resource")
+            amount = float(amount)
+            if not math.isfinite(amount) or amount < 0:
+                raise DomainError(
+                    f"{self.node_id}: usage of {resource!r} must be a finite non-negative "
+                    f"number, got {amount}"
+                )
+            normalised.append((str(resource), amount))
+        names = [name for name, _ in normalised]
+        if len(names) != len(set(names)):
+            raise DomainError(f"{self.node_id}: usage names a resource more than once")
+        object.__setattr__(self, "usage", tuple(sorted(normalised)))
         if self.cost < 0:
             raise DomainError(f"{self.node_id}: cost must be non-negative, got {self.cost}")
         if self.risk_reduction_pts < 0:
@@ -106,6 +139,41 @@ class Intervention:
     @property
     def display_name(self) -> str:
         return self.name or self.node_id
+
+    def usage_of(self, resource: str) -> float:
+        """Units of ``resource`` consumed at 100% scale; 0 when the intervention does not use it."""
+        for name, amount in self.usage:
+            if name == resource:
+                return amount
+        return 0.0
+
+
+@dataclass(frozen=True, slots=True)
+class Resource:
+    """A capped supply that interventions draw on in addition to capital.
+
+    The budget is one scalar. Real portfolios also run against per-supplier
+    capacities: a vendor's daily quota, a port's slots, a team's hours. Each is a
+    resource with a ``capacity``, and each intervention states its ``usage`` of it
+    at full scale. The optimizer adds one row per resource,
+    ``sum(usage_n * x_n) <= capacity``, and the verifier re-checks it after the
+    solve exactly as it re-checks the budget.
+
+    A capacity of zero is legal and means "nothing that uses this may be funded",
+    which is how a supplier that is down for the day is expressed.
+    """
+
+    name: str
+    capacity: float
+
+    def __post_init__(self) -> None:
+        if not str(self.name).strip():
+            raise DomainError("Resource.name must be a non-empty string")
+        if not math.isfinite(self.capacity) or self.capacity < 0:
+            raise DomainError(
+                f"Resource {self.name!r}: capacity must be a finite non-negative number, "
+                f"got {self.capacity}"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,12 +229,15 @@ class SupplyNetwork:
 
     ``baseline_risk_pts`` is the pre-intervention system risk in percentage
     points. Interventions reduce it; total reduction is capped at the baseline.
+    ``resources`` are the capped supplies interventions draw on beside capital;
+    an empty tuple (the default) changes nothing about a network without them.
     """
 
     interventions: tuple[Intervention, ...]
     baseline_risk_pts: float
     dependencies: tuple[Dependency, ...] = ()
     bundles: tuple[Bundle, ...] = ()
+    resources: tuple[Resource, ...] = ()
     metadata: dict[str, object] = field(default_factory=dict, compare=False)
 
     def __post_init__(self) -> None:
@@ -226,11 +297,41 @@ class SupplyNetwork:
                 "Dependency graph contains a cycle: " + " -> ".join(cycle)
             )
 
+        resource_names = [r.name for r in self.resources]
+        duplicate_resources = {n for n in resource_names if resource_names.count(n) > 1}
+        if duplicate_resources:
+            raise DomainError(f"Duplicate resource names: {sorted(duplicate_resources)}")
+        # A usage naming a resource the network does not declare is a mapping error,
+        # not a free lunch: silently ignoring it would let an intervention draw on a
+        # capacity nobody capped (the same class of silent match as F11).
+        declared = set(resource_names)
+        for intervention in self.interventions:
+            unknown = sorted({name for name, _ in intervention.usage} - declared)
+            if unknown:
+                raise DomainError(
+                    f"{intervention.node_id}: usage names undeclared resource(s) {unknown}; "
+                    "declare them on the network's resources"
+                )
+
     # -- access -------------------------------------------------------------
 
     @property
     def node_ids(self) -> tuple[str, ...]:
         return tuple(i.node_id for i in self.interventions)
+
+    @property
+    def resource_names(self) -> tuple[str, ...]:
+        return tuple(r.name for r in self.resources)
+
+    def resource(self, name: str) -> Resource:
+        for resource in self.resources:
+            if resource.name == name:
+                return resource
+        raise KeyError(name)
+
+    def resource_demand_at_full_scale(self, name: str) -> float:
+        """Units of ``name`` the whole network would draw at 100% funding everywhere."""
+        return sum(i.usage_of(name) * i.max_funding_scale for i in self.interventions)
 
     def __iter__(self) -> Iterator[Intervention]:
         return iter(self.interventions)

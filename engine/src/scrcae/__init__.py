@@ -12,7 +12,7 @@ from .calibration import (
     FitQuality,
     calibrate_elasticity,
 )
-from .domain import Bundle, Dependency, Intervention, SupplyNetwork
+from .domain import Bundle, Dependency, Intervention, Resource, SupplyNetwork
 from .optimization import (
     MinimizeCapitalObjective,
     MonetaryNPVObjective,
@@ -50,6 +50,7 @@ __all__ = [
     "OptimizationRequest",
     "ParameterPowerResponse",
     "PriceBook",
+    "Resource",
     "SimulationRequest",
     "SupplyNetwork",
     "UniformCorrelation",

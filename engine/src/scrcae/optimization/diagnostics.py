@@ -190,8 +190,19 @@ def attainable_frontier(
         result.scales().get(node.node_id, 0.0) >= node.max_funding_scale - 1e-9
         for node in network
     )
+    # A resource row that is tight while some node is below its maximum is what
+    # stopped the portfolio, and "more capital" is the wrong remedy for it: the
+    # supply is what has to grow. Checked before the budget for that reason.
+    tight_resources = tuple(
+        resource.name
+        for resource in network.resources
+        if result.resource_use.get(resource.name, 0.0) >= resource.capacity - 1e-9
+        and network.resource_demand_at_full_scale(resource.name) > resource.capacity + 1e-9
+    )
     if enforce_risk_cap and reduction >= network.baseline_risk_pts - 1e-9:
         limited_by = "risk_cap"
+    elif tight_resources and not at_structural_max:
+        limited_by = "resource:" + ",".join(tight_resources)
     elif budget is not None and not at_structural_max:
         limited_by = "budget"
     else:
@@ -280,6 +291,22 @@ def diagnose(request) -> InfeasibilityDiagnosis:
             if requested_risk is not None
             else f"A reduction of {required:.1f} points"
         )
+        if frontier.limited_by.startswith("resource:"):
+            # The ceiling is a capped supply, not the portfolio's shape. More capital
+            # still does not help, but the remedy is different and worth naming.
+            bound = frontier.limited_by.split(":", 1)[1]
+            return build(
+                InfeasibilityKind.EXCEEDS_STRUCTURAL_CEILING,
+                f"{target_text} is not reachable while the capacity of {bound} binds. "
+                f"Within that capacity the portfolio delivers at most "
+                f"{frontier.max_reduction_pts:.1f} points of reduction, taking risk from "
+                f"{baseline:.1f}% only as low as {frontier.attainable_risk_pts:.1f}% at a "
+                f"cost of {frontier.capital_at_ceiling:,.0f}. The request is short by "
+                f"{required - frontier.max_reduction_pts:.1f} points.",
+                "This is not a budget constraint: additional capital does not change it. "
+                f"Raising the capacity of {bound}, or moving usage to a supply with room, "
+                "is what changes it.",
+            )
         return build(
             InfeasibilityKind.EXCEEDS_STRUCTURAL_CEILING,
             f"{target_text} is not reachable with the current intervention "
